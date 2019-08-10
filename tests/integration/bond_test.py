@@ -35,6 +35,8 @@ from libnmstate.schema import InterfaceIPv6
 from .testlib import assertlib
 from .testlib import statelib
 from .testlib.assertlib import assert_mac_address
+from .testlib.vlan import vlan_interface
+from .testlib.statelib import show_only
 
 
 BOND99 = 'bond99'
@@ -91,6 +93,16 @@ def bond88_with_slave(eth1_up):
 def bond99_with_slave(eth2_up):
     slaves = [eth2_up[Interface.KEY][0][Interface.NAME]]
     with bond_interface(BOND99, slaves) as state:
+        yield state
+
+
+@pytest.fixture
+def bond99_vlan102(bond99_with_slave):
+    vlan_id = 102
+    vlan_base_iface = BOND99
+    port_name = '{}.{}'.format(vlan_base_iface, vlan_id)
+    with vlan_interface(port_name, vlan_id, vlan_base_iface):
+        state = show_only((port_name,))
         yield state
 
 
@@ -369,3 +381,11 @@ def test_bond_with_empty_ipv6_static_address(eth1_up):
         assertlib.assert_state(bond_state)
 
     assertlib.assert_absent('bond99')
+
+
+def test_create_vlan_as_slave_of_bond(bond99_vlan102):
+    bond_name = BOND99
+    vlan_id = 102
+    slaves = ['{}.{}'.format(bond_name, vlan_id)]
+    with bond_interface(bond_name, slaves) as state:
+        assertlib.assert_state(state)
